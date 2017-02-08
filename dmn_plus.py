@@ -1,3 +1,4 @@
+import pdb
 import sys
 import time
 
@@ -6,17 +7,26 @@ from copy import deepcopy
 
 import tensorflow as tf
 
-import babi_input
+import pach_input
 
 class Config(object):
     """Holds model hyperparams and data information."""
 
     batch_size = 100
-    embed_size = 80
-    hidden_size = 80
+    #embed_size = 80
+    embed_size = 150 #100
+    #hidden_size = 80
+    hidden_size = 150 #100
+    min_vocab_cnt = 0
+    #min_vocab_cnt = 100
+    vec_size = 150 #input GloVe vector size 100
 
-    max_epochs = 256
-    early_stopping = 20
+    max_epochs = 256 
+    early_stopping = 5
+    #early_stopping = 20 
+    yes_repeat = 1
+    eval_dir = None
+    repack = False 
 
     dropout = 0.9
     lr = 0.001
@@ -26,8 +36,10 @@ class Config(object):
     max_grad_val = 10
     noisy_grads = False
 
-    word2vec_init = False
+    #word2vec_init = False
+    word2vec_init = True 
     embedding_init = 1.7320508 # root 3
+    #embedding_len = 8500
 
     # set to zero with strong supervision to only train gates
     strong_supervision = False
@@ -39,17 +51,21 @@ class Config(object):
     anneal_by = 1.5
 
     num_hops = 3
+    #num_hops = 4
     num_attention_features = 4
 
-    max_allowed_inputs = 130
-    num_train = 9000
+    max_allowed_inputs = 50 #200 #80
+    #max_allowed_inputs = 200 #80
+    max_allowed_sent_len = 20 #50
+    #num_train = 200 # split inputs 90% training and 10% validation instead of hardcoding
 
     floatX = np.float32
 
-    babi_id = "1"
-    babi_test_id = ""
+    pach_id = "1"
+    pach_test_id = ""
 
     train_mode = True
+    eval_mode = False
 
 def _add_gradient_noise(t, stddev=1e-3, name=None):
     """Adds gradient noise as described in http://arxiv.org/abs/1511.06807
@@ -101,9 +117,9 @@ class DMN_PLUS(object):
     def load_data(self, debug=False):
         """Loads train/valid/test data and sentence encoding"""
         if self.config.train_mode:
-            self.train, self.valid, self.word_embedding, self.max_q_len, self.max_input_len, self.max_sen_len, self.num_supporting_facts, self.vocab_size = babi_input.load_babi(self.config, split_sentences=True)
+            self.train, self.valid, self.word_embedding, self.max_q_len, self.max_input_len, self.max_sen_len, self.num_supporting_facts, self.vocab_size, self.fnlist, self.ansList = pach_input.load_pach(self.config, split_sentences=True)
         else:
-            self.test, self.word_embedding, self.max_q_len, self.max_input_len, self.max_sen_len, self.num_supporting_facts, self.vocab_size = babi_input.load_babi(self.config, split_sentences=True)
+            self.test, self.word_embedding, self.max_q_len, self.max_input_len, self.max_sen_len, self.num_supporting_facts, self.vocab_size, self.fnlist, self.ansList, self.pach_test_raw = pach_input.load_pach(self.config, split_sentences=True)
         self.encoding = _position_encoding(self.max_sen_len, self.config.embed_size)
 
     def add_placeholders(self):
@@ -168,7 +184,8 @@ class DMN_PLUS(object):
             if not 'bias' in v.name.lower():
                 loss += self.config.l2*tf.nn.l2_loss(v)
 
-        tf.scalar_summary('loss', loss)
+        tf.summary.scalar('loss', loss)
+        #tf.scalar_summary('loss', loss)
 
         return loss
         
@@ -201,6 +218,7 @@ class DMN_PLUS(object):
     def get_input_representation(self, embeddings):
         """Get fact (sentence) vectors via embedding, positional encoding and bi-directional GRU"""
         # get word vectors from embedding
+        #pdb.set_trace()
         inputs = tf.nn.embedding_lookup(embeddings, self.input_placeholder)
 
         # use encoding to get sentence representation
@@ -259,14 +277,15 @@ class DMN_PLUS(object):
         """Generate episode by applying attention to current fact vectors through a modified GRU"""
 
         attentions = [tf.squeeze(self.get_attention(q_vec, memory, fv), squeeze_dims=[1]) for fv in fact_vecs]
-
         attentions = tf.transpose(tf.pack(attentions))
+        #tf.Print(attentions, [attentions], "attentions is:")
 
         self.attentions.append(attentions)
 
         softs = tf.nn.softmax(attentions)
         softs = tf.split(1, self.max_input_len, softs)
-        
+        tf.summary.tensor_summary("softs", softs)
+        tf.Print(softs, [softs])
         gru_outputs = []
 
         # set initial state to zero
@@ -275,6 +294,7 @@ class DMN_PLUS(object):
         # use attention gru
         for i, fv in enumerate(fact_vecs):
             h = self._attention_GRU_step(fv, h, softs[i])
+            tf.summary.tensor_summary("softs", softs[i])
             gru_outputs.append(h)
 
         # extract gru outputs at proper index according to input_lens
@@ -282,7 +302,7 @@ class DMN_PLUS(object):
         gru_outputs = tf.transpose(gru_outputs, perm=[1,0,2])
         episode = _last_relevant(gru_outputs, self.input_len_placeholder)
 
-        return episode
+        return episode, softs
 
     def add_answer_module(self, rnn_output, q_vec):
         """Linear softmax answer module"""
@@ -290,6 +310,8 @@ class DMN_PLUS(object):
 
             rnn_output = tf.nn.dropout(rnn_output, self.dropout_placeholder)
 
+            #U = tf.get_variable("U", (2*self.config.embed_size, self.config.embedding_len))
+            #b_p = tf.get_variable("bias_p", (self.config.embedding_len,))
             U = tf.get_variable("U", (2*self.config.embed_size, self.vocab_size))
             b_p = tf.get_variable("bias_p", (self.vocab_size,))
 
@@ -323,12 +345,13 @@ class DMN_PLUS(object):
 
             # generate n_hops episodes
             prev_memory = q_vec
-
+            softs_list=[]
             for i in range(self.config.num_hops):
                 # get a new episode
                 print '==> generating episode', i
-                episode = self.generate_episode(prev_memory, q_vec, fact_vecs)
-
+                episode, softs = self.generate_episode(prev_memory, q_vec, fact_vecs)
+                #tf.Print(episode, [episode])
+                softs_list.append(softs)
                 # untied weights for memory update
                 Wt = tf.get_variable("W_t"+ str(i), (2*self.config.hidden_size+self.config.embed_size, self.config.hidden_size))
                 bt = tf.get_variable("bias_t"+ str(i), (self.config.hidden_size,))
@@ -341,8 +364,51 @@ class DMN_PLUS(object):
         # pass memory module output through linear answer module
         output = self.add_answer_module(output, q_vec)
 
-        return output
+        return output, softs_list
 
+    def print_attention(self,softs_list, step, entry, f, outp, fname):
+        f.write("content: "+str(step)+" "+fname+"\n")
+        for j, softs in enumerate(softs_list):
+            max=[0.0,0.0,0.0]
+            idx=[0,0,0]
+            for i, sf in enumerate(softs):
+                if sf[0][0] > max[0]: 
+                    max[2] = max[1]
+                    idx[2] = idx[1]
+                    max[1] = max[0]
+                    idx[1] = idx[0]
+                    max[0] = sf[0][0]
+                    idx[0] = i
+                elif sf[0][0] > max[1]: 
+                    max[2] = max[1]
+                    idx[2] = idx[1]
+                    max[1] = sf[0][0]
+                    idx[1] = i
+                elif sf[0][0] > max[2]: 
+                    max[2] = sf[0][0]
+                    idx[2] = i
+            for i, m in enumerate(max):
+                #print str(m)+"_"+str(idx[i])+":"
+                f.write(str(m)+"_"+str(idx[i])+":\n")
+            #print "---hop["+str(j)+"]-----"
+            f.write("---hop["+str(j)+"]-----\n")
+        task = self.pach_test_raw[entry]
+        for j,l in enumerate(task["C"].split('.')):
+            f.write(str(j)+": ")
+            if j == idx[0]:
+                f.write(">>>")
+            if j == idx[1]:
+                f.write(">>")
+            if j == idx[2]:
+                f.write(">")
+            f.write(l)
+            f.write("\n")
+        f.write("Question:\n")
+        f.write(task["Q"])
+        f.write("\n")
+        f.write("prediction="+outp+"\n")
+        f.write("-----------------------\n")
+        return
 
     def run_epoch(self, session, data, num_epoch=0, train_writer=None, train_op=None, verbose=2, train=False):
         config = self.config
@@ -352,13 +418,22 @@ class DMN_PLUS(object):
             dp = 1
         total_steps = len(data[0]) / config.batch_size
         total_loss = []
+        predict = None
         accuracy = 0
         
         # shuffle data
         p = np.random.permutation(len(data[0]))
+        pstr = ""
+        for i,j in enumerate(p):
+            pstr+=str(i)+":"+str(j)+" "
+        #if config.batch_size == 1:
+        #    print pstr
         qp, ip, ql, il, im, a, r = data
-        qp, ip, ql, il, im, a, r = qp[p], ip[p], ql[p], il[p], im[p], a[p], r[p] 
+        if self.config.train_mode:
+            qp, ip, ql, il, im, a, r = qp[p], ip[p], ql[p], il[p], im[p], a[p], r[p] 
 
+        if config.batch_size == 1:
+            f = open("attention.dmp","w")
         for step in range(total_steps):
             index = range(step*config.batch_size,(step+1)*config.batch_size)
             feed = {self.question_placeholder: qp[index],
@@ -368,14 +443,31 @@ class DMN_PLUS(object):
                   self.answer_placeholder: a[index],
                   self.rel_label_placeholder: r[index],
                   self.dropout_placeholder: dp}
-            loss, pred, summary, _ = session.run(
-              [self.calculate_loss, self.pred, self.merged, train_op], feed_dict=feed)
+            loss, pred, summary, _, out, softs_list = session.run(
+              [self.calculate_loss, self.pred, self.merged, train_op, self.output, self.softs_list], feed_dict=feed)
 
             if train_writer is not None:
                 train_writer.add_summary(summary, num_epoch*total_steps + step)
 
             answers = a[step*config.batch_size:(step+1)*config.batch_size]
             accuracy += np.sum(pred == answers)/float(len(answers))
+            #print softs_list.shape
+            if config.batch_size == 1:
+                #print ""
+                #print "Step: "+str(step) 
+                #print "content: "+str(p[step])
+                outp = "Yes" if pred==self.ansList[0] else "No"
+                idx = step
+                if self.config.train_mode:
+                    #pdb.set_trace()
+                    idx = p[step]
+                self.print_attention(softs_list, step, p[step], f, outp, self.fnlist[idx])
+                #print "prediction="+outp
+                #print " "+str(softs_list[0].index(max(softs_list[0])))+":"+str(softs_list[1].index(max(softs_list[1])))+":"+str(softs_list[2].index(max(softs_list[2])))+":"+self.fnlist[step]
+            if predict == None: 
+                predict = pred
+            else:
+                predict=np.append(predict, pred, axis=0)
 
 
             total_loss.append(loss)
@@ -384,11 +476,12 @@ class DMN_PLUS(object):
                   step, total_steps, np.mean(total_loss)))
                 sys.stdout.flush()
 
-
+        if config.batch_size == 1:
+            f.close()
         if verbose:
             sys.stdout.write('\r')
 
-        return np.mean(total_loss), accuracy/float(total_steps)
+        return np.mean(total_loss), accuracy/float(total_steps), predict, a[:len(predict)], p
 
 
     def __init__(self, config):
@@ -398,9 +491,10 @@ class DMN_PLUS(object):
         self.load_data(debug=False)
         self.add_placeholders()
         self.add_reused_variables()
-        self.output = self.inference()
+        self.output, self.softs_list = self.inference()
         self.pred = self.get_predictions(self.output)
         self.calculate_loss = self.add_loss_op(self.output)
         self.train_step = self.add_training_op(self.calculate_loss)
-        self.merged = tf.merge_all_summaries()
+        self.merged = tf.summary.merge_all()
+        #self.merged = tf.merge_all_summaries()
 
