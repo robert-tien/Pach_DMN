@@ -378,7 +378,7 @@ def pad_inputs(inputs, lens, max_len, mode="", sen_lens=None, max_sen_len=None):
             padded_sentences = [np.pad(s, (0, max_sen_len - sen_lens[i][j]), 'constant', constant_values=0) for j, s in enumerate(inp)]
             # trim array according to max allowed inputs
             if len(padded_sentences) > max_len: # this should not happen!!
-                pdb.set_trace()
+                #pdb.set_trace()
                 assert(padded_sentences == max_len)
                 padded_sentences = padded_sentences[(len(padded_sentences)-max_len):]
                 lens[i] = max_len
