@@ -122,6 +122,8 @@ for run in range(num_runs):
                     print 'Saving weights'
                     best_overall_val_loss = best_val_loss
                     best_val_accuracy = valid_accuracy
+                    bv_train_loss = train_loss
+                    bv_train_accuracy = train_accuracy
                     saver.save(session, 'weights/task' + str(model.config.pach_id) + '.weights')
 
             # anneal
@@ -134,8 +136,12 @@ for run in range(num_runs):
             if epoch - best_val_epoch > config.early_stopping:
                 break
             print 'Total time: {}'.format(time.time() - start)
-        print 'Best validation accuracy:', best_val_accuracy
+        print 'Best validation accuracy=', best_val_accuracy
+        print 'Best validation loss    =', best_val_loss
+        print 'Best training   accuracy=', bv_train_accuracy
+        print 'Best training   loss    =', bv_train_loss
+        print 'Best validation epoch   =', best_val_epoch
 
 
-print 'Total Train time: {}'.format(time.time() - begin)
+print 'Total Train time= {}'.format(time.time() - begin)
 

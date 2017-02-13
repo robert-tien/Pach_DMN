@@ -116,17 +116,19 @@ with tf.Session() as session:
                 correct += 1
                 print model.fnlist[ii]
 
+    bs="v" if args.batch_size == "1" else "t"
     print ''
     print "batch_size="+str(model.config.batch_size)
-    print "non-generated positive correct: "+str(correct)
-    print "non-generated positive cases  : "+str(cnt)
+    print "for non-generated positive correct= "+str(correct)
+    print "non-generated positive cases  = "+str(cnt)
     if cnt > 0:
-        print "non-generated positive accuracy: "+str(float(correct)/float(cnt))
-    print "length of answers: "+str(len(ans))+" pred: "+str(len(pred))
-    print "positive correct: "+str(np.sum((ans==Yes) & (Yes==pred))) #有  
-    print "positive cases  : "+str(np.sum((ans==Yes)))
+        print "non-generated positive accuracy ("+bs+"ngp_recall): "+str(float(correct)/float(cnt))
+    print "length of answers= "+str(len(ans))+" pred: "+str(len(pred))
+    print "positive correct= "+str(np.sum((ans==Yes) & (Yes==pred))) #有  
+    print "positive cases  = "+str(np.sum((ans==Yes)))
     if np.sum((ans==Yes)):
-        print "positive accuracy: "+str(np.sum((ans==Yes) & (Yes==pred))/float(np.sum((ans==Yes))))
+        print "nr positive's selected ("+bs+"recall)= "+str(np.sum((ans==Yes) & (Yes==pred))/float(np.sum((ans==Yes))))
+        print "nr selected positive ("+bs+"precision)= "+str(np.sum((ans==Yes) & (Yes==pred))/float(np.sum((pred==Yes))))
     if not model.config.eval_mode:
         No  = model.ansList[1]
         for ii, a in enumerate(ans):
@@ -134,16 +136,16 @@ with tf.Session() as session:
                 cnt += 1 # count number of positive non-generated test cases
                 if a==No  and pred[ii]==No : # correctly predicted 
                     correct += 1
-        print "non-generated negative correct: "+str(correct)
-        print "non-generated negative cases  : "+str(cnt)
+        print "non-generated negative correct= "+str(correct)
+        print "non-generated negative cases  = "+str(cnt)
         if cnt > 0:
             print "non-generated negative accuracy: "+str(float(correct)/float(cnt))
-        print "negtive  correct: "+str(np.sum((ans==No) & (No==pred))) #没有 
-        print "negtive  cases  : "+str(np.sum((ans==No)))
+        print "negtive  correct= "+str(np.sum((ans==No) & (No==pred))) #没有 
+        print "negtive  cases  = "+str(np.sum((ans==No)))
         if np.sum((ans==No)):
-            print "negtive  accuracy: "+str(np.sum((ans==No) & (No==pred))/float(np.sum((ans==No))))
+            print "negtive  accuracy= "+str(np.sum((ans==No) & (No==pred))/float(np.sum((ans==No))))
     print "number of test cases="+str(len(ans))
     print "number of correct pred="+str(np.sum(pred==ans))
     accuracy = np.sum(pred == ans)/float(len(ans))
     print "my accuracy=", accuracy
-    print 'Test accuracy:', test_accuracy
+    print bs+'Test accuracy=', test_accuracy

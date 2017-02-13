@@ -366,8 +366,8 @@ class DMN_PLUS(object):
 
         return output, softs_list
 
-    def print_attention(self,softs_list, step, entry, f, outp, fname):
-        f.write("content: "+str(step)+" -"+outp+" "+fname+"\n")
+    def print_attention(self,softs_list, step, entry, f, a, outp, fname):
+        f.write("content: "+str(step)+" "+a+"-"+outp+" "+fname+"\n")
         for j, softs in enumerate(softs_list):
             max=[0.0,0.0,0.0]
             idx=[0,0,0]
@@ -453,6 +453,7 @@ class DMN_PLUS(object):
             answers = a[step*config.batch_size:(step+1)*config.batch_size]
             accuracy += np.sum(pred == answers)/float(len(answers))
             #print softs_list.shape
+            #pdb.set_trace()
             if config.batch_size == 1:
                 #print ""
                 #print "Step: "+str(step) 
@@ -462,7 +463,8 @@ class DMN_PLUS(object):
                 if self.config.train_mode:
                     #pdb.set_trace()
                     idx = p[step]
-                self.print_attention(softs_list, step, idx, f, outp, self.fnlist[idx])
+                ans = "Yes" if a[step]==self.ansList[0] else "No"
+                self.print_attention(softs_list, step, idx, f, ans, outp, self.fnlist[idx])
                 #print "prediction="+outp
                 #print " "+str(softs_list[0].index(max(softs_list[0])))+":"+str(softs_list[1].index(max(softs_list[1])))+":"+str(softs_list[2].index(max(softs_list[2])))+":"+self.fnlist[step]
             if predict == None: 
