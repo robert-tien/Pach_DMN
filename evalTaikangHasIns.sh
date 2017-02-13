@@ -34,4 +34,5 @@ echo "mv -i data/dmnNoHasInsTest_bk data/dmnNoHasInsTest"
 mv -i data/dmnNoHasInsTest_bk data/dmnNoHasInsTest
 echo "#dumping attention.dmp"
 echo "-----------------------"
+echo "<a name=\"attention.dmp\"></a>"
 cat attention.dmp
