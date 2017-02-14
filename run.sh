@@ -4,28 +4,36 @@ if [[ -z $1 ]]; then
     echo ""
     echo "missing argument"
     echo "please specify a category, e.g. Car"
+    echo "to improve on a previous run, enter previous run log file"
     echo ""
 #    exit 1
 else 
 echo "<html>" 
-<head>
-<meta http-equiv="content-type" content="text/html;charset=utf-8">
-</head>
+echo "<head>"
+echo "<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">"
+echo "</head>"
 #echo "<a name=\"\"></a>"
-echo "<a href=\"#cleanAll\">cleanAll</a>"
-echo "<a href=\"#dmnYes$1Train\">dmnYes$1Train</a>"
-echo "<a href=\"#dmnNo$1Train\">dmnNo$1Train</a>"
-echo "<a href=\"#dmnMaybe$1Source\">dmnMaybe$1Source</a>"
-echo "<a href=\"#keyWordPrases/$1Yes.txt\">keyWordPrases/$1Yes.txt</a>"
-echo "<a href=\"#keyWordPrases/$1No.txt\">keyWordPrases/$1No.txt</a>"
-echo "<a href=\"#keyWordPrases/$1Maybe.txt\">keyWordPrases/$1Maybe.txt</a>"
-echo "<a href=\"#genAll\">genAll</a>"
-echo "<a href=\"#distAll\">distAll</a>"
-echo "<a href=\"#train\">train</a>"
-echo "<a href=\"#test\">test</a>"
-echo "<a href=\"#eval taikang\">eval taikang</a>"
-echo "<a href=\"#attention.dmp\">attention.dmp</a>"
-echo "<a name=\"cleanAll\"></a>"
+echo "<a href=\"#improve\">improve </a> <br>"
+echo "<a href=\"#cleanAll\">cleanAll</a> <br>"
+echo "<a href=\"#dmnYes$1Train\">dmnYes$1Train</a> <br>"
+echo "<a href=\"#dmnNo$1Train\">dmnNo$1Train</a> <br>"
+echo "<a href=\"#dmnMaybe$1Source\">dmnMaybe$1Source</a> <br>"
+echo "<a href=\"#keyWordPrases/$1Yes.txt\">keyWordPrases/$1Yes.txt</a> <br>"
+echo "<a href=\"#keyWordPrases/$1No.txt\">keyWordPrases/$1No.txt</a> <br>"
+echo "<a href=\"#keyWordPrases/$1Maybe.txt\">keyWordPrases/$1Maybe.txt</a> <br>"
+echo "<a href=\"#genAll\">genAll</a> <br>"
+echo "<a href=\"#distAll\">distAll</a> <br>"
+echo "<a href=\"#train\">train</a> <br>"
+echo "<a href=\"#test\">test</a> <br>"
+echo "<a href=\"#eval taikang\">eval taikang</a> <br>"
+echo "<a href=\"#attention.dmp\">attention.dmp</a> <br>"
+echo "<a name=\"improve\"></a> <br>"
+echo "<PRE>"
+if [ "$#" -eq "2" ]; then
+    improve.sh $2
+fi
+echo "</PRE>"
+echo "<a name=\"cleanAll\"></a> <br>"
 echo "<PRE>"
 # get the output file name
 uuid=$(uuidgen)
@@ -93,7 +101,7 @@ evalTaikangHasIns.sh
 #echo "</PRE>" inside evalTaikangHasIns.sh
 # now grep all useful data 
 echo "generate result html"
-getDataResults.sh $file > run_tmp.out
-createHtml.sh run_tmp.out
+#getDataResults.sh $file > run_tmp.out
+createHtml.sh $file
 echo "</html>" 
 fi

@@ -2,7 +2,11 @@
 #
 echo "<tr>"
 echo "<td>"
+echo "<a href=\"log/"
 echo $1
+echo "\">"
+echo $1
+echo "</a>"
 echo "</td>"
 echo "<td>"
 grep -m 1 "max_input_len" $1|cut -d "=" -f 2
