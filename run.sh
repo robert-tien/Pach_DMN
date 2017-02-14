@@ -84,10 +84,10 @@ echo "---- ./util/distAll.sh $1"
 echo "</PRE>"
 echo "<a name=\"train\"></a>"
 echo "<PRE>"
-echo "python dmn_train.py -b p2 -v 150 -m 50 -V 50"
-python dmn_train.py -b p2 -v 150 -m 50 -V 50
-#echo "---- train: python dmn_train.py -b p2 -v 150 -m 50 -V 50 -r weights_bak/weights_p2_I50S20V150Vb50G523-20KNew"
-#python dmn_train.py -b p2 -v 150 -m 50 -V 50 -r weights_bak/weights_p2_I50S20V150Vb50G523-20KNew
+#echo "python dmn_train.py -b p2 -v 150 -m 50 -V 50"
+#python dmn_train.py -b p2 -v 150 -m 50 -V 50
+echo "---- train: python dmn_train.py -b p2 -v 150 -m 50 -V 50 -r weights_bak/weights.HasInsFull-I50S20V150Vb50Gen523-20K0Scratch"
+python dmn_train.py -b p2 -v 150 -m 50 -V 50 -r weights_bak/weights.HasInsFull-I50S20V150Vb50Gen523-20K0Scratch
 echo "</PRE>"
 echo "<a name=\"test\"></a>"
 echo "<PRE>"
